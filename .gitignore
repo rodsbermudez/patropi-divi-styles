@@ -1,0 +1,18 @@
+# CodeIgniter
+writable/
+vendor/
+*.log
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+
+# Environment
+.env.local
+.env.*.local
