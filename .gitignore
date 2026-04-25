@@ -1,8 +1,7 @@
-# CodeIgniter
+# CodeIgniter 4
 writable/
 vendor/
 *.log
-.DS_Store
 
 # IDE
 .idea/
@@ -11,8 +10,20 @@ vendor/
 *.swo
 
 # OS
+.DS_Store
 Thumbs.db
 
 # Environment
 .env.local
 .env.*.local
+
+# CI3 (legacy)
+application/logs/*
+!application/logs/index.html
+!application/logs/.htaccess
+
+# Cache
+*/cache/*
+!system/cache/*
+!*/cache/index.html
+!*/cache/.htaccess
