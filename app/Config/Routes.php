@@ -23,6 +23,7 @@ $routes->get('/dashboard', 'Home::index');
 $routes->get('/styles', 'StylesController::index');
 $routes->get('/sync', 'SyncController::index');
 $routes->get('/sync/download-plugin', 'SyncController::downloadPlugin');
+$routes->get('/sync/download-presets', 'SyncController::downloadPresets');
 $routes->post('/sync/send', 'SyncController::send');
 
 // Websites

@@ -5,7 +5,7 @@ namespace App\Controllers;
 use App\Models\StyleModel;
 use App\Models\WebsiteModel;
 
-define('PLUGIN_VERSION', '1.0.0');
+define('PLUGIN_VERSION', '1.2.0');
 
 class SyncController extends BaseController
 {
@@ -43,8 +43,9 @@ class SyncController extends BaseController
 
         $zip = new \ZipArchive();
         if ($zip->open($zipFile, \ZipArchive::CREATE) === true) {
+            $pluginDir = $pluginPath . '/divi-automation';
             $files = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($pluginPath),
+                new \RecursiveDirectoryIterator($pluginDir),
                 \RecursiveIteratorIterator::SELF_FIRST
             );
             
@@ -54,9 +55,9 @@ class SyncController extends BaseController
                 }
                 
                 $filePath = $file->getRealPath();
-                $relativePath = str_replace($pluginPath . DIRECTORY_SEPARATOR, '', $filePath);
+                $relativePath = str_replace($pluginDir . DIRECTORY_SEPARATOR, '', $filePath);
                 
-                $zip->addFile($filePath, 'divi-automation/' . $relativePath);
+                $zip->addFile($filePath, $relativePath);
             }
             
             $zip->close();
@@ -139,19 +140,31 @@ class SyncController extends BaseController
         
         $credentials = base64_encode($website['username'] . ':' . $website['app_password']);
         
-        $client = \Config\Services::curlrequest();
+        $ch = curl_init();
+        
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Basic ' . $credentials,
+            'Content-Type: application/json'
+        ]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         
         try {
-            $response = $client->setHeader('Authorization', 'Basic ' . $credentials)
-                ->setHeader('Content-Type', 'application/json')
-                ->post($url, json_encode($payload));
-
-            if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            $responseBody = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($httpCode >= 200 && $httpCode < 300) {
                 return ['success' => true, 'message' => 'Preset enviado com sucesso!'];
             } else {
-                return ['success' => false, 'message' => 'Erro: ' . $response->getStatusCode() . ' - ' . $response->getBody()];
+                return ['success' => false, 'message' => 'Erro: ' . $httpCode . ' - ' . $responseBody];
             }
         } catch (\Exception $e) {
+            curl_close($ch);
             return ['success' => false, 'message' => 'Erro de conexão: ' . $e->getMessage()];
         }
     }
