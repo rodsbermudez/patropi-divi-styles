@@ -3,7 +3,7 @@
  * Plugin Name: Divi Automation
  * Plugin URI: https://github.com/rodsbermudez/divi-automation
  * Description: Plugin para criar e atualizar Global Presets do Divi 5 via REST API
- * Version: 1.2.0
+ * Version: 2.0.0
  * Author: Divi Patropi
  * Author URI: https://github.com/rodsbermudez
  * License: GPL v2 or later
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DIVI_AUTOMATION_VERSION', '1.2.0');
+define('DIVI_AUTOMATION_VERSION', '2.0.0');
 
 /**
  * Registra endpoints REST API
@@ -31,87 +31,87 @@ function divi_automation_register_routes() {
         'callback' => 'divi_automation_get_presets',
         'permission_callback' => '__return_true',
     ));
-    
-    register_rest_route('divi-automation/v1', '/export-presets', array(
-        'methods' => 'GET',
-        'callback' => 'divi_automation_export_presets',
-        'permission_callback' => '__return_true',
-    ));
 }
 
 add_action('rest_api_init', 'divi_automation_register_routes');
 
 /**
- * Mapeamento de propriedades CSS para Divi 5
+ * Gera ID único no formato do Divi 5
  */
-function divi_automation_get_mapping() {
-    return array(
-        'backgroundColor' => 'bg_color',
-        'background_color' => 'bg_color',
-        'color' => 'text_color',
-        'text_color' => 'text_color',
-        'fontSize' => 'font_size',
-        'font_size' => 'font_size',
-        'fontFamily' => 'font_family',
-        'font_family' => 'font_family',
-        'fontWeight' => 'font_weight',
-        'font_weight' => 'font_weight',
-        'borderRadius' => 'border_radius',
-        'border_radius' => 'border_radius',
-        'paddingTop' => 'padding_top',
-        'paddingRight' => 'padding_right',
-        'paddingBottom' => 'padding_bottom',
-        'paddingLeft' => 'padding_left',
-        'marginTop' => 'margin_top',
-        'marginRight' => 'margin_right',
-        'marginBottom' => 'margin_bottom',
-        'marginLeft' => 'margin_left',
-        'borderWidth' => 'border_width',
-        'border_width' => 'border_width',
-        'borderColor' => 'border_color',
-        'border_color' => 'border_color',
-        'borderStyle' => 'border_style',
-        'border_style' => 'border_style',
-        'boxShadow' => 'box_shadow',
-        'box_shadow' => 'box_shadow',
-        'opacity' => 'module_alignment',
-        'width' => 'max_width',
-        'height' => 'height',
-        'gap' => 'gap',
-    );
+function divi_automation_generate_id() {
+    return 'i' . substr(md5(uniqid()), 0, 10);
 }
 
 /**
- * Converte estilos para formato Divi 5
+ * Converte CSS do Figma para estrutura Divi 5 (botão)
  */
-function divi_automation_convert_styles($styles, $module_type) {
-    $mapping = divi_automation_get_mapping();
-    $converted = array();
+function divi_automation_css_to_divi5_button($css_styles) {
+    $divi_attrs = array();
     
-    foreach ($styles as $key => $value) {
-        $new_key = $mapping[$key] ?? $key;
-        
-        // Aplica prefix conforme o tipo de módulo
-        if ($module_type === 'et_pb_button') {
-            if (in_array($new_key, array('text_color', 'bg_color', 'font_size'))) {
-                $converted['button_' . $new_key] = $value;
-            } else {
-                $converted[$new_key] = $value;
-            }
-        } else {
-            $converted[$new_key] = $value;
-        }
+    // BACKGROUND COLOR
+    if (isset($css_styles['backgroundColor'])) {
+        $divi_attrs['decoration']['background']['desktop']['value']['color'] = $css_styles['backgroundColor'];
     }
     
-    return $converted;
+    // BORDER RADIUS
+    if (isset($css_styles['borderRadius'])) {
+        $divi_attrs['decoration']['border']['desktop']['value']['radius'] = array(
+            'topLeft' => $css_styles['borderRadius'] . 'px',
+            'topRight' => $css_styles['borderRadius'] . 'px',
+            'bottomLeft' => $css_styles['borderRadius'] . 'px',
+            'bottomRight' => $css_styles['borderRadius'] . 'px',
+            'sync' => 'on'
+        );
+    }
+    
+    // BORDER WIDTH
+    if (isset($css_styles['borderWidth'])) {
+        $divi_attrs['decoration']['border']['desktop']['value']['styles']['all']['width'] = $css_styles['borderWidth'];
+    }
+    
+    // BORDER COLOR
+    if (isset($css_styles['borderColor'])) {
+        $divi_attrs['decoration']['border']['desktop']['value']['styles']['all']['color'] = $css_styles['borderColor'];
+    }
+    
+    // BORDER STYLE
+    if (isset($css_styles['borderStyle'])) {
+        $divi_attrs['decoration']['border']['desktop']['value']['styles']['all']['style'] = $css_styles['borderStyle'];
+    }
+    
+    // PADDING (aplicado no module wrapper)
+    $has_padding = false;
+    $padding = array();
+    if (isset($css_styles['paddingTop'])) {
+        $padding['top'] = is_numeric($css_styles['paddingTop']) ? $css_styles['paddingTop'] . 'px' : $css_styles['paddingTop'];
+        $has_padding = true;
+    }
+    if (isset($css_styles['paddingRight'])) {
+        $padding['right'] = is_numeric($css_styles['paddingRight']) ? $css_styles['paddingRight'] . 'px' : $css_styles['paddingRight'];
+        $has_padding = true;
+    }
+    if (isset($css_styles['paddingBottom'])) {
+        $padding['bottom'] = is_numeric($css_styles['paddingBottom']) ? $css_styles['paddingBottom'] . 'px' : $css_styles['paddingBottom'];
+        $has_padding = true;
+    }
+    if (isset($css_styles['paddingLeft'])) {
+        $padding['left'] = is_numeric($css_styles['paddingLeft']) ? $css_styles['paddingLeft'] . 'px' : $css_styles['paddingLeft'];
+        $has_padding = true;
+    }
+    
+    if ($has_padding) {
+        $padding['syncVertical'] = 'off';
+        $padding['syncHorizontal'] = 'off';
+        $divi_attrs['spacing']['desktop']['value']['padding'] = $padding;
+    }
+    
+    return $divi_attrs;
 }
 
 /**
- * Cria preset no banco (formato Divi 5)
+ * Cria preset no formato correto do Divi 5 (wp_options)
  */
 function divi_automation_update_preset(WP_REST_Request $request) {
-    global $wpdb;
-    
     $module_type = $request->get_param('module_type');
     $preset_name = $request->get_param('preset_name');
     $is_default = $request->get_param('is_default');
@@ -121,122 +121,125 @@ function divi_automation_update_preset(WP_REST_Request $request) {
         return new WP_Error('missing_params', 'Module type and preset name are required', array('status' => 400));
     }
     
-    // Remove prefix et_pb_ do tipo
-    $divi_type = str_replace('et_pb_', '', $module_type);
+    // Mapeia tipo Divi 4 para Divi 5
+    $divi5_module = str_replace('et_pb_', 'divi/', $module_type);
     
     $normal_styles = isset($styles['normal']) ? $styles['normal'] : array();
     $hover_styles = isset($styles['hover']) ? $styles['hover'] : array();
     
-    // Converter estilos para formato Divi 5
-    $normal_converted = divi_automation_convert_styles($normal_styles, $module_type);
-    $hover_converted = divi_automation_convert_styles($hover_styles, $module_type);
+    // Gera ID único
+    $preset_id = divi_automation_generate_id();
+    $timestamp = (int)(microtime(true) * 1000);
     
-    // Criar preset como post do tipo divi_preset
-    $post_data = array(
-        'post_title' => sanitize_text_field($preset_name),
-        'post_content' => json_encode(array(
-            'type' => $divi_type,
-            'default' => (bool) $is_default,
-            'normal' => $normal_converted,
-            'hover' => $hover_converted,
-        )),
-        'post_type' => 'divi_preset',
-        'post_status' => 'publish',
+    // Converte estilos CSS para formato Divi 5
+    $normal_converted = divi_automation_css_to_divi5_button($normal_styles);
+    
+    // Monta estrutura completa do preset
+    $preset_data = array(
+        'id' => $preset_id,
+        'name' => sanitize_text_field($preset_name),
+        'moduleName' => $divi5_module,
+        'version' => '5.3.3',
+        'type' => 'module',
+        'created' => $timestamp,
+        'updated' => $timestamp,
+        'attrs' => array(
+            'button' => $normal_converted
+        ),
+        'styleAttrs' => array(
+            'button' => $normal_converted
+        ),
+        'renderAttrs' => array()
     );
     
-    // Verificar se já existe preset com mesmo nome e tipo
-    $existing = $wpdb->get_row($wpdb->prepare(
-        "SELECT ID FROM {$wpdb->posts} 
-         WHERE post_type = 'divi_preset' 
-         AND post_title = %s 
-         AND post_content LIKE %s",
-        $preset_name,
-        '%' . $divi_type . '%'
-    ));
+    // Obtém opção existente
+    $option_name = 'et_divi_builder_global_presets_d5';
+    $existing_data = get_option($option_name, array());
     
-    if ($existing) {
-        $post_data['ID'] = $existing->ID;
-        $result = wp_update_post($post_data);
-    } else {
-        $result = wp_insert_post($post_data);
+    // Inicializa estrutura se não existir
+    if (empty($existing_data)) {
+        $existing_data = array(
+            'module' => array()
+        );
     }
     
-    if (is_wp_error($result)) {
-        return new WP_Error('insert_failed', 'Failed to create preset: ' . $result->get_error_message(), array('status' => 500));
+    // Inicializa módulo se não existir
+    if (!isset($existing_data['module'])) {
+        $existing_data['module'] = array();
     }
     
-    // Adicionar metadados
-    update_post_meta($result, '_divi_preset_type', $divi_type);
-    update_post_meta($result, '_divi_preset_default', $is_default ? 'on' : '');
-    update_post_meta($result, '_divi_preset_styles_normal', json_encode($normal_converted));
-    update_post_meta($result, '_divi_preset_styles_hover', json_encode($hover_converted));
+    if (!isset($existing_data['module'][$divi5_module])) {
+        $existing_data['module'][$divi5_module] = array(
+            'default' => $preset_id,
+            'items' => array()
+        );
+    }
     
-    return array(
-        'success' => true,
-        'message' => 'Preset created successfully. Use Divi Visual Builder > Preset Manager to find it.',
-        'preset_id' => $result,
-    );
-}
-
-/**
- * Lista todos os presets
- */
-function divi_automation_get_presets() {
-    global $wpdb;
-    
-    $presets = $wpdb->get_results("
-        SELECT ID, post_title as name, post_content as data 
-        FROM {$wpdb->posts} 
-        WHERE post_type = 'divi_preset' 
-        AND post_status = 'publish'
-        ORDER BY post_date DESC
-    ", ARRAY_A);
-    
-    return array(
-        'success' => true,
-        'presets' => $presets,
-    );
-}
-
-/**
- * Exporta presets no formato JSON do Divi 5
- */
-function divi_automation_export_presets() {
-    global $wpdb;
-    
-    $presets = $wpdb->get_results("
-        SELECT post_title, post_content 
-        FROM {$wpdb->posts} 
-        WHERE post_type = 'divi_preset' 
-        AND post_status = 'publish'
-    ", ARRAY_A);
-    
-    // Formato de export do Divi 5
-    $export_data = array(
-        'version' => DIVI_AUTOMATION_VERSION,
-        'presets' => array(),
-    );
-    
-    foreach ($presets as $preset) {
-        $data = json_decode($preset['post_content'], true);
-        if ($data) {
-            $export_data['presets'][] = array(
-                'label' => $preset['post_title'],
-                'type' => $data['type'] ?? 'button',
-                'default' => $data['default'] ?? false,
-                'styles' => array(
-                    'normal' => $data['normal'] ?? array(),
-                    'hover' => $data['hover'] ?? array(),
-                ),
-            );
+    // Remove preset existente com mesmo nome
+    foreach ($existing_data['module'][$divi5_module]['items'] as $key => $item) {
+        if ($item['name'] === $preset_name) {
+            unset($existing_data['module'][$divi5_module]['items'][$key]);
         }
     }
     
-    return $export_data;
+    // Adiciona novo preset
+    $existing_data['module'][$divi5_module]['items'][$preset_id] = $preset_data;
+    
+    // Se for default, atualiza
+    if ($is_default) {
+        $existing_data['module'][$divi5_module]['default'] = $preset_id;
+    }
+    
+    // Reindex array
+    $existing_data['module'][$divi5_module]['items'] = array_values($existing_data['module'][$divi5_module]['items']);
+    $keys = array_keys($existing_data['module'][$divi5_module]['items']);
+    $existing_data['module'][$divi5_module]['items'] = array_combine($keys, $existing_data['module'][$divi5_module]['items']);
+    $existing_data['module'][$divi5_module]['default'] = $keys[0] ?? $preset_id;
+    
+    // Salva opção
+    update_option($option_name, $existing_data);
+    
+    return array(
+        'success' => true,
+        'message' => 'Preset criado no formato Divi 5. Acesse Visual Builder > Preset Manager para visualizar.',
+        'preset_id' => $preset_id,
+        'module_type' => $divi5_module
+    );
 }
 
 /**
- * Menu de admin
+ * Lista presets existentes
+ */
+function divi_automation_get_presets() {
+    $option_name = 'et_divi_builder_global_presets_d5';
+    $data = get_option($option_name, array());
+    
+    $presets = array();
+    
+    if (isset($data['module'])) {
+        foreach ($data['module'] as $module => $items) {
+            if (isset($items['items'])) {
+                foreach ($items['items'] as $preset) {
+                    $presets[] = array(
+                        'id' => $preset['id'],
+                        'name' => $preset['name'],
+                        'module' => $preset['moduleName'],
+                        'created' => $preset['created'],
+                        'updated' => $preset['updated']
+                    );
+                }
+            }
+        }
+    }
+    
+    return array(
+        'success' => true,
+        'presets' => $presets
+    );
+}
+
+/**
+ * Menu admin
  */
 function divi_automation_admin_menu() {
     add_options_page(
@@ -254,13 +257,19 @@ add_action('admin_menu', 'divi_automation_admin_menu');
  * Página de settings
  */
 function divi_automation_settings_page() {
-    global $wpdb;
-    $presets = $wpdb->get_results("
-        SELECT ID, post_title, post_date 
-        FROM {$wpdb->posts} 
-        WHERE post_type = 'divi_preset' 
-        ORDER BY post_date DESC
-    ");
+    $option_name = 'et_divi_builder_global_presets_d5';
+    $data = get_option($option_name, array());
+    $presets = array();
+    
+    if (isset($data['module'])) {
+        foreach ($data['module'] as $module => $items) {
+            if (isset($items['items'])) {
+                foreach ($items['items'] as $preset) {
+                    $presets[] = $preset;
+                }
+            }
+        }
+    }
     ?>
     <div class="wrap">
         <h1>Divi Automation</h1>
@@ -276,15 +285,17 @@ function divi_automation_settings_page() {
                     <tr>
                         <th>ID</th>
                         <th>Nome</th>
-                        <th>Data</th>
+                        <th>Módulo</th>
+                        <th>Criado</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($presets as $preset): ?>
                     <tr>
-                        <td><?php echo $preset->ID; ?></td>
-                        <td><?php echo esc_html($preset->post_title); ?></td>
-                        <td><?php echo $preset->post_date; ?></td>
+                        <td><?php echo esc_html($preset['id']); ?></td>
+                        <td><?php echo esc_html($preset['name']); ?></td>
+                        <td><?php echo esc_html($preset['moduleName']); ?></td>
+                        <td><?php echo date('d/m/Y H:i', $preset['created'] / 1000); ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -295,16 +306,33 @@ function divi_automation_settings_page() {
         <ol>
             <li>Abra o Visual Builder do Divi 5</li>
             <li>Clique no ícone <strong>Preset Manager</strong> na sidebar esquerda</li>
-            <li>Os presets criados aparecerão na lista</li>
-            <li>Clique em um preset para editá-lo ou aplicá-lo</li>
+            <li>Os presets aparecerão na lista</li>
+            <li>Aplique o preset aos módulos correspondentes</li>
         </ol>
         
-        <h2>API Endpoints</h2>
-        <ul>
-            <li><code><?php echo get_rest_url(null, 'divi-automation/v1/update-preset'); ?></code> - POST (criar preset)</li>
-            <li><code><?php echo get_rest_url(null, 'divi-automation/v1/get-presets'); ?></code> - GET (listar presets)</li>
-            <li><code><?php echo get_rest_url(null, 'divi-automation/v1/export-presets'); ?></code> - GET (export JSON)</li>
-        </ul>
+        <h2>API Endpoint</h2>
+        <p><code><?php echo get_rest_url(null, 'divi-automation/v1/update-preset'); ?></code></p>
+        
+        <h3>Payload esperado:</h3>
+        <pre>{
+  "module_type": "et_pb_button",
+  "preset_name": "Meu Botão",
+  "is_default": true,
+  "styles": {
+    "normal": {
+      "backgroundColor": "#d82929",
+      "borderRadius": "10",
+      "paddingTop": 16,
+      "paddingRight": 16,
+      "paddingBottom": 16,
+      "paddingLeft": 16,
+      "borderWidth": "2px",
+      "borderColor": "#5c1616",
+      "borderStyle": "solid"
+    },
+    "hover": null
+  }
+}</pre>
     </div>
     <?php
 }
