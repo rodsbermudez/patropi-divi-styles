@@ -3,7 +3,7 @@
  * Plugin Name: Divi Automation
  * Plugin URI: https://github.com/rodsbermudez/divi-automation
  * Description: Plugin para criar e atualizar Global Presets do Divi 5 via REST API
- * Version: 2.0.0
+ * Version: 2.0.1
  * Author: Divi Patropi
  * Author URI: https://github.com/rodsbermudez
  * License: GPL v2 or later
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DIVI_AUTOMATION_VERSION', '2.0.0');
+define('DIVI_AUTOMATION_VERSION', '2.0.1');
 
 /**
  * Registra endpoints REST API
@@ -43,69 +43,90 @@ function divi_automation_generate_id() {
 }
 
 /**
- * Converte CSS do Figma para estrutura Divi 5 (botão)
+ * Formata valor com unidade (sem duplicar px)
  */
-function divi_automation_css_to_divi5_button($css_styles) {
-    $divi_attrs = array();
+function divi_automation_format_value($value, $default_unit = 'px') {
+    if (is_numeric($value)) {
+        return $value . $default_unit;
+    }
+    // Se já tem unidade (px, em, rem, etc), retorna como está
+    return $value;
+}
+
+/**
+ * Converte CSS do Figma para estrutura Divi 5 (botão) - ATRIBUTOS DO BOTÃO
+ */
+function divi_automation_css_to_divi5_button_attrs($css_styles) {
+    $button_attrs = array();
     
     // BACKGROUND COLOR
     if (isset($css_styles['backgroundColor'])) {
-        $divi_attrs['decoration']['background']['desktop']['value']['color'] = $css_styles['backgroundColor'];
+        $button_attrs['decoration']['background']['desktop']['value']['color'] = $css_styles['backgroundColor'];
     }
     
     // BORDER RADIUS
     if (isset($css_styles['borderRadius'])) {
-        $divi_attrs['decoration']['border']['desktop']['value']['radius'] = array(
-            'topLeft' => $css_styles['borderRadius'] . 'px',
-            'topRight' => $css_styles['borderRadius'] . 'px',
-            'bottomLeft' => $css_styles['borderRadius'] . 'px',
-            'bottomRight' => $css_styles['borderRadius'] . 'px',
+        $radius = divi_automation_format_value($css_styles['borderRadius'], 'px');
+        $button_attrs['decoration']['border']['desktop']['value']['radius'] = array(
+            'topLeft' => $radius,
+            'topRight' => $radius,
+            'bottomLeft' => $radius,
+            'bottomRight' => $radius,
             'sync' => 'on'
         );
     }
     
     // BORDER WIDTH
     if (isset($css_styles['borderWidth'])) {
-        $divi_attrs['decoration']['border']['desktop']['value']['styles']['all']['width'] = $css_styles['borderWidth'];
+        $button_attrs['decoration']['border']['desktop']['value']['styles']['all']['width'] = divi_automation_format_value($css_styles['borderWidth'], 'px');
     }
     
     // BORDER COLOR
     if (isset($css_styles['borderColor'])) {
-        $divi_attrs['decoration']['border']['desktop']['value']['styles']['all']['color'] = $css_styles['borderColor'];
+        $button_attrs['decoration']['border']['desktop']['value']['styles']['all']['color'] = $css_styles['borderColor'];
     }
     
     // BORDER STYLE
     if (isset($css_styles['borderStyle'])) {
-        $divi_attrs['decoration']['border']['desktop']['value']['styles']['all']['style'] = $css_styles['borderStyle'];
+        $button_attrs['decoration']['border']['desktop']['value']['styles']['all']['style'] = $css_styles['borderStyle'];
     }
     
-    // PADDING (aplicado no module wrapper)
+    return $button_attrs;
+}
+
+/**
+ * Converte CSS do Figma para estrutura Divi 5 (botão) - ATRIBUTOS DO MÓDULO (wrapper)
+ */
+function divi_automation_css_to_divi5_module_attrs($css_styles) {
+    $module_attrs = array();
+    
     $has_padding = false;
     $padding = array();
+    
     if (isset($css_styles['paddingTop'])) {
-        $padding['top'] = is_numeric($css_styles['paddingTop']) ? $css_styles['paddingTop'] . 'px' : $css_styles['paddingTop'];
+        $padding['top'] = divi_automation_format_value($css_styles['paddingTop'], 'px');
         $has_padding = true;
     }
     if (isset($css_styles['paddingRight'])) {
-        $padding['right'] = is_numeric($css_styles['paddingRight']) ? $css_styles['paddingRight'] . 'px' : $css_styles['paddingRight'];
+        $padding['right'] = divi_automation_format_value($css_styles['paddingRight'], 'px');
         $has_padding = true;
     }
     if (isset($css_styles['paddingBottom'])) {
-        $padding['bottom'] = is_numeric($css_styles['paddingBottom']) ? $css_styles['paddingBottom'] . 'px' : $css_styles['paddingBottom'];
+        $padding['bottom'] = divi_automation_format_value($css_styles['paddingBottom'], 'px');
         $has_padding = true;
     }
     if (isset($css_styles['paddingLeft'])) {
-        $padding['left'] = is_numeric($css_styles['paddingLeft']) ? $css_styles['paddingLeft'] . 'px' : $css_styles['paddingLeft'];
+        $padding['left'] = divi_automation_format_value($css_styles['paddingLeft'], 'px');
         $has_padding = true;
     }
     
     if ($has_padding) {
         $padding['syncVertical'] = 'off';
         $padding['syncHorizontal'] = 'off';
-        $divi_attrs['spacing']['desktop']['value']['padding'] = $padding;
+        $module_attrs['decoration']['spacing']['desktop']['value']['padding'] = $padding;
     }
     
-    return $divi_attrs;
+    return $module_attrs;
 }
 
 /**
@@ -132,7 +153,8 @@ function divi_automation_update_preset(WP_REST_Request $request) {
     $timestamp = (int)(microtime(true) * 1000);
     
     // Converte estilos CSS para formato Divi 5
-    $normal_converted = divi_automation_css_to_divi5_button($normal_styles);
+    $button_attrs = divi_automation_css_to_divi5_button_attrs($normal_styles);
+    $module_attrs = divi_automation_css_to_divi5_module_attrs($normal_styles);
     
     // Monta estrutura completa do preset
     $preset_data = array(
@@ -144,10 +166,12 @@ function divi_automation_update_preset(WP_REST_Request $request) {
         'created' => $timestamp,
         'updated' => $timestamp,
         'attrs' => array(
-            'button' => $normal_converted
+            'module' => $module_attrs,
+            'button' => $button_attrs
         ),
         'styleAttrs' => array(
-            'button' => $normal_converted
+            'module' => $module_attrs,
+            'button' => $button_attrs
         ),
         'renderAttrs' => array()
     );
@@ -182,19 +206,13 @@ function divi_automation_update_preset(WP_REST_Request $request) {
         }
     }
     
-    // Adiciona novo preset
+    // Adiciona novo preset com ID como CHAVE (não reindexar)
     $existing_data['module'][$divi5_module]['items'][$preset_id] = $preset_data;
     
     // Se for default, atualiza
     if ($is_default) {
         $existing_data['module'][$divi5_module]['default'] = $preset_id;
     }
-    
-    // Reindex array
-    $existing_data['module'][$divi5_module]['items'] = array_values($existing_data['module'][$divi5_module]['items']);
-    $keys = array_keys($existing_data['module'][$divi5_module]['items']);
-    $existing_data['module'][$divi5_module]['items'] = array_combine($keys, $existing_data['module'][$divi5_module]['items']);
-    $existing_data['module'][$divi5_module]['default'] = $keys[0] ?? $preset_id;
     
     // Salva opção
     update_option($option_name, $existing_data);
@@ -203,7 +221,10 @@ function divi_automation_update_preset(WP_REST_Request $request) {
         'success' => true,
         'message' => 'Preset criado no formato Divi 5. Acesse Visual Builder > Preset Manager para visualizar.',
         'preset_id' => $preset_id,
-        'module_type' => $divi5_module
+        'module_type' => $divi5_module,
+        'debug' => array(
+            'attrs' => $preset_data['attrs']
+        )
     );
 }
 
@@ -219,7 +240,7 @@ function divi_automation_get_presets() {
     if (isset($data['module'])) {
         foreach ($data['module'] as $module => $items) {
             if (isset($items['items'])) {
-                foreach ($items['items'] as $preset) {
+                foreach ($items['items'] as $key => $preset) {
                     $presets[] = array(
                         'id' => $preset['id'],
                         'name' => $preset['name'],

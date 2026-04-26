@@ -5,7 +5,7 @@ namespace App\Controllers;
 use App\Models\StyleModel;
 use App\Models\WebsiteModel;
 
-define('PLUGIN_VERSION', '1.2.0');
+define('PLUGIN_VERSION', '2.0.1');
 
 class SyncController extends BaseController
 {
